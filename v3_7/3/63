@@ -1,0 +1,107 @@
+#include "PMS.h"
+#include <TridentTD_LineNotify.h>
+#include <LiquidCrystal_I2C.h>
+LiquidCrystal_I2C lcd(0x3F, 16, 2); 
+
+#define SSID        "AndroidAP"
+#define PASSWORD    "11223344"
+#define LINE_TOKEN  "BAphxaAHwTvTX7lbGMRO4WSCJxd1GC34H3MxCwMTqzX"
+
+PMS pms(Serial);
+PMS::DATA data;
+
+float Dust1avg_1,Dust2avg_2;
+float Dust1,Dust2,Dust1avg,Dust2avg = 0.00;
+int i,j = 0;
+
+String message1;
+String message2;
+
+
+void setup()
+{
+  Serial.begin(9600);
+  Serial.println();
+  
+  Serial.println(LINE.getVersion());
+  WiFi.begin(SSID, PASSWORD);
+  Serial.printf("WiFi connecting to %s\n",  SSID);
+  while(WiFi.status() != WL_CONNECTED) 
+  { 
+    Serial.print("."); 
+    delay(400); 
+  }
+  Serial.printf("\nWiFi connected\nIP : ");
+  Serial.println(WiFi.localIP());
+  
+ 
+  LINE.setToken(LINE_TOKEN);
+
+  lcd.begin();
+}
+
+void loop()
+{
+  lcd.home();
+  if (pms.read(data))
+  { 
+    i++;
+    
+    Serial.print("PM 2.5 (ug/m3): ");
+    Serial.println(data.PM_AE_UG_2_5);
+    Serial.print("PM 10.0 (ug/m3): ");
+    Serial.println(data.PM_AE_UG_10_0);
+    Serial.println();
+
+    //lcd.home();
+    //Display LCD PM2.5
+    lcd.setCursor(0, 0);
+    lcd.print("PM2.5:");
+    lcd.print(data.PM_AE_UG_2_5);
+    lcd.print(" ug/m3  ");
+
+    //Display LCD PM10
+    lcd.setCursor(0, 1);
+    lcd.print("PM10:");
+    lcd.print(data.PM_AE_UG_10_0);
+    lcd.print(" ug/m3  ");
+
+    Dust1+=data.PM_AE_UG_2_5;
+    Dust2+=data.PM_AE_UG_10_0;
+
+    delay(500);
+
+    if(i==300){
+      Dust1avg_1 = (Dust1/i);
+      Dust2avg_2 = (Dust2/i);
+      message1 = String(Dust1avg_1);
+      message2 = String(Dust2avg_2);
+      
+      if((Dust1avg_1>=0.00)&&(Dust1avg_1<=25.00)){
+        LINE.notify("คุณภาพอากาศดีมาก มีค่า PM2.5 = "+message1+" ug/m3"+" และมีค่า PM10 = "+message2+" ug/m3");
+      }
+      else if((Dust1avg_1>25.00)&&(Dust1avg_1<=37.00)){
+        LINE.notify("คุณภาพอากาศดี มีค่า PM2.5 = "+message1+" ug/m3"+" และมีค่า PM10 = "+message2+" ug/m3");
+      }
+      else if((Dust1avg_1>37.00)&&(Dust1avg_1<=50.00)){
+        LINE.notify("คุณภาพอากาศปานกลาง มีค่า PM2.5 = "+message1+" ug/m3"+" และมีค่า PM10 = "+message2+" ug/m3");
+      }
+      else if((Dust1avg_1>50.00)&&(Dust1avg_1<=90.00)){
+        LINE.notify("คุณภาพอากาศอันตราย มีค่า PM2.5 = "+message1+" ug/m3"+" และมีค่า PM10 = "+message2+" ug/m3");
+      }
+      else if(Dust1avg_1>90.00){
+        LINE.notify("คุณภาพอากาศอันตรายมาก มีค่า PM2.5 = "+message1+" ug/m3"+" และมีค่า PM10 = "+message2+" ug/m3");
+      }
+      Dust1 = 0.00;
+      Dust2 = 0.00;
+      Dust1avg_1 = 0.00;
+      Dust2avg_2 = 0.00;
+      i=0;
+
+
+  
+    }
+
+  }
+
+}
